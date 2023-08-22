@@ -29,18 +29,20 @@
         private void InitializeComponent()
         {
             ExistingProcesses = new ListBox();
-            BlockedProcesses = new ListBox();
+            ProcessesWithRules = new ListBox();
             Block_btn = new Button();
             Unblock_btn = new Button();
             button1 = new Button();
-            AllowedProcesses = new ListBox();
             button2 = new Button();
             label1 = new Label();
             TimeAllowed_nud = new NumericUpDown();
-            textBox1 = new TextBox();
+            MaxLifeTime_tb = new TextBox();
             label2 = new Label();
-            textBox2 = new TextBox();
+            LeftLifeTime_tb = new TextBox();
             label3 = new Label();
+            ProcessName_lb = new Label();
+            ProcessName_tb = new TextBox();
+            Run_btn = new Button();
             ((System.ComponentModel.ISupportInitialize)TimeAllowed_nud).BeginInit();
             SuspendLayout();
             // 
@@ -48,19 +50,20 @@
             // 
             ExistingProcesses.FormattingEnabled = true;
             ExistingProcesses.ItemHeight = 15;
-            ExistingProcesses.Location = new Point(12, 12);
+            ExistingProcesses.Location = new Point(12, 14);
             ExistingProcesses.Name = "ExistingProcesses";
             ExistingProcesses.Size = new Size(243, 424);
             ExistingProcesses.TabIndex = 0;
             // 
-            // BlockedProcesses
+            // ProcessesWithRules
             // 
-            BlockedProcesses.FormattingEnabled = true;
-            BlockedProcesses.ItemHeight = 15;
-            BlockedProcesses.Location = new Point(432, 14);
-            BlockedProcesses.Name = "BlockedProcesses";
-            BlockedProcesses.Size = new Size(243, 424);
-            BlockedProcesses.TabIndex = 1;
+            ProcessesWithRules.FormattingEnabled = true;
+            ProcessesWithRules.ItemHeight = 15;
+            ProcessesWithRules.Location = new Point(432, 14);
+            ProcessesWithRules.Name = "ProcessesWithRules";
+            ProcessesWithRules.Size = new Size(243, 424);
+            ProcessesWithRules.TabIndex = 1;
+            ProcessesWithRules.SelectedIndexChanged += AllowedTimeSelectedChanged;
             // 
             // Block_btn
             // 
@@ -74,7 +77,7 @@
             // 
             // Unblock_btn
             // 
-            Unblock_btn.Location = new Point(261, 112);
+            Unblock_btn.Location = new Point(261, 338);
             Unblock_btn.Name = "Unblock_btn";
             Unblock_btn.Size = new Size(165, 44);
             Unblock_btn.TabIndex = 3;
@@ -92,28 +95,20 @@
             button1.UseVisualStyleBackColor = true;
             button1.Click += BlockProcessExeClick;
             // 
-            // AllowedProcesses
-            // 
-            AllowedProcesses.FormattingEnabled = true;
-            AllowedProcesses.ItemHeight = 15;
-            AllowedProcesses.Location = new Point(852, 12);
-            AllowedProcesses.Name = "AllowedProcesses";
-            AllowedProcesses.Size = new Size(243, 424);
-            AllowedProcesses.TabIndex = 5;
-            // 
             // button2
             // 
-            button2.Location = new Point(681, 62);
+            button2.Location = new Point(261, 288);
             button2.Name = "button2";
             button2.Size = new Size(165, 44);
             button2.TabIndex = 6;
             button2.Text = "Set allowed time";
             button2.UseVisualStyleBackColor = true;
+            button2.Click += SetAllowedTimeClick;
             // 
             // label1
             // 
             label1.AutoSize = true;
-            label1.Location = new Point(681, 14);
+            label1.Location = new Point(261, 109);
             label1.Name = "label1";
             label1.Size = new Size(123, 15);
             label1.TabIndex = 7;
@@ -121,65 +116,93 @@
             // 
             // TimeAllowed_nud
             // 
-            TimeAllowed_nud.Location = new Point(681, 33);
-            TimeAllowed_nud.Maximum = new decimal(new int[] { 180, 0, 0, 0 });
-            TimeAllowed_nud.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
+            TimeAllowed_nud.Location = new Point(261, 259);
+            TimeAllowed_nud.Maximum = new decimal(new int[] { 1440, 0, 0, 0 });
             TimeAllowed_nud.Name = "TimeAllowed_nud";
             TimeAllowed_nud.Size = new Size(120, 23);
             TimeAllowed_nud.TabIndex = 8;
             TimeAllowed_nud.Value = new decimal(new int[] { 1, 0, 0, 0 });
             // 
-            // textBox1
+            // MaxLifeTime_tb
             // 
-            textBox1.Location = new Point(681, 133);
-            textBox1.Name = "textBox1";
-            textBox1.ReadOnly = true;
-            textBox1.Size = new Size(100, 23);
-            textBox1.TabIndex = 9;
+            MaxLifeTime_tb.Location = new Point(261, 186);
+            MaxLifeTime_tb.Name = "MaxLifeTime_tb";
+            MaxLifeTime_tb.ReadOnly = true;
+            MaxLifeTime_tb.Size = new Size(100, 23);
+            MaxLifeTime_tb.TabIndex = 9;
             // 
             // label2
             // 
             label2.AutoSize = true;
-            label2.Location = new Point(681, 115);
+            label2.Location = new Point(261, 168);
             label2.Name = "label2";
-            label2.Size = new Size(120, 15);
+            label2.Size = new Size(123, 15);
             label2.TabIndex = 10;
-            label2.Text = "Max life time allowed";
+            label2.Text = "Max life time allowed:";
             // 
-            // textBox2
+            // LeftLifeTime_tb
             // 
-            textBox2.Location = new Point(681, 184);
-            textBox2.Name = "textBox2";
-            textBox2.ReadOnly = true;
-            textBox2.Size = new Size(100, 23);
-            textBox2.TabIndex = 11;
+            LeftLifeTime_tb.Location = new Point(261, 230);
+            LeftLifeTime_tb.Name = "LeftLifeTime_tb";
+            LeftLifeTime_tb.ReadOnly = true;
+            LeftLifeTime_tb.Size = new Size(100, 23);
+            LeftLifeTime_tb.TabIndex = 11;
             // 
             // label3
             // 
             label3.AutoSize = true;
-            label3.Location = new Point(681, 166);
+            label3.Location = new Point(261, 212);
             label3.Name = "label3";
-            label3.Size = new Size(106, 15);
+            label3.Size = new Size(109, 15);
             label3.TabIndex = 12;
-            label3.Text = "Life time left today";
+            label3.Text = "Life time left today:";
+            // 
+            // ProcessName_lb
+            // 
+            ProcessName_lb.AutoSize = true;
+            ProcessName_lb.Location = new Point(261, 124);
+            ProcessName_lb.Name = "ProcessName_lb";
+            ProcessName_lb.Size = new Size(83, 15);
+            ProcessName_lb.TabIndex = 14;
+            ProcessName_lb.Text = "Process name:";
+            // 
+            // ProcessName_tb
+            // 
+            ProcessName_tb.Location = new Point(261, 142);
+            ProcessName_tb.Name = "ProcessName_tb";
+            ProcessName_tb.ReadOnly = true;
+            ProcessName_tb.Size = new Size(100, 23);
+            ProcessName_tb.TabIndex = 13;
+            // 
+            // Run_btn
+            // 
+            Run_btn.Font = new Font("Segoe UI", 11F, FontStyle.Bold, GraphicsUnit.Point);
+            Run_btn.Location = new Point(261, 394);
+            Run_btn.Name = "Run_btn";
+            Run_btn.Size = new Size(165, 44);
+            Run_btn.TabIndex = 15;
+            Run_btn.Text = "Run rules";
+            Run_btn.UseVisualStyleBackColor = true;
             // 
             // Admin
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(1108, 450);
+            ClientSize = new Size(687, 450);
+            Controls.Add(Run_btn);
+            Controls.Add(ProcessName_lb);
+            Controls.Add(ProcessName_tb);
             Controls.Add(label3);
-            Controls.Add(textBox2);
+            Controls.Add(LeftLifeTime_tb);
             Controls.Add(label2);
-            Controls.Add(textBox1);
+            Controls.Add(MaxLifeTime_tb);
             Controls.Add(TimeAllowed_nud);
             Controls.Add(label1);
             Controls.Add(button2);
-            Controls.Add(AllowedProcesses);
             Controls.Add(button1);
             Controls.Add(Unblock_btn);
             Controls.Add(Block_btn);
-            Controls.Add(BlockedProcesses);
+            Controls.Add(ProcessesWithRules);
             Controls.Add(ExistingProcesses);
             Name = "Admin";
             Text = "Admin";
@@ -191,17 +214,19 @@
         #endregion
 
         private ListBox ExistingProcesses;
-        private ListBox BlockedProcesses;
+        private ListBox ProcessesWithRules;
         private Button Block_btn;
         private Button Unblock_btn;
         private Button button1;
-        private ListBox AllowedProcesses;
         private Button button2;
         private Label label1;
         private NumericUpDown TimeAllowed_nud;
-        private TextBox textBox1;
+        private TextBox MaxLifeTime_tb;
         private Label label2;
-        private TextBox textBox2;
+        private TextBox LeftLifeTime_tb;
         private Label label3;
+        private Label ProcessName_lb;
+        private TextBox ProcessName_tb;
+        private Button Run_btn;
     }
 }

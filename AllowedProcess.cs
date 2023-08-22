@@ -9,25 +9,41 @@ namespace ProcessAdmin_19._08
 {
     internal class AllowedProcess
     {
-        public Process proc { get; set; }
+        public string ProcessName { get; set; }
         public int AllowedTime { get; set; }
-        public List<DateTime> StartTimeValues { get; set; }
-        public List<DateTime> CloseTimeValues { get; set; }
+        public object locker { get; set; } = new object();
+
+        private int workTime;
+
+        public int WorkTime
+        {
+            get 
+            {
+                lock(locker)
+                {
+                    return workTime;
+                }
+            }
+            set 
+            { 
+                lock(locker)
+                {
+                    workTime = value;
+                }
+            }
+        }
 
         public AllowedProcess()
         {
-            StartTimeValues = new List<DateTime>();
-            CloseTimeValues = new List<DateTime>();
             AllowedTime = 0;
-            proc = null;
+            WorkTime = 0;
+            ProcessName = string.Empty;
         }
 
-        public AllowedProcess(Process proc, int allowedTime)
+        public AllowedProcess(string proc, int allowedTime)
         {
-            this.proc = proc;
+            ProcessName = proc;
             AllowedTime = allowedTime;
-            StartTimeValues = new List<DateTime>();
-            CloseTimeValues = new List<DateTime>();
         }
     }
 }

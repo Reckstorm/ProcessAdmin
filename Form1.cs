@@ -11,8 +11,7 @@ namespace ProcessAdmin_19._08
         private List<string> _processNames { get; set; }
         private List<Process> _processList { get; set; }
         private List<AllowedProcess> _allowedProcesses { get; set; }
-        public string _pathBlocked { get; set; }
-        public string _pathAllowed { get; set; }
+        public string _pathProcesses { get; set; }
         private bool _running { get; set; }
         public Admin()
         {
@@ -21,13 +20,10 @@ namespace ProcessAdmin_19._08
             FormClosing += (s, e) =>
             {
                 _running = !_running;
-                File.WriteAllText(_pathBlocked, JsonSerializer.Serialize(this.BlockedProcesses.Items));
-                File.WriteAllText(_pathAllowed, JsonSerializer.Serialize(this.AllowedProcesses.Items));
+                WriteProcesses();
             };
-            _pathBlocked = $"{Environment.CurrentDirectory}\\RestrictedPrograms.json";
-            _pathAllowed = $"{Environment.CurrentDirectory}\\AllowedPrograms.json";
-            ReadBlockedProcesses();
-            ReadAllowedProcesses();
+            _pathProcesses = $"{Environment.CurrentDirectory}\\Rules.json";
+            ReadProcesses();
             _running = true;
             foreach (Process item in Process.GetProcesses())
             {
@@ -37,33 +33,54 @@ namespace ProcessAdmin_19._08
                 }
             }
             RunBlock();
-            Shown += RenewList;
+            RunCheck();
+            ResetTimers();
+            Load += RenewList;
         }
 
-        private void ReadBlockedProcesses()
+        private void ReadProcesses()
         {
-            if (File.Exists(_pathBlocked))
+            if (File.Exists(_pathProcesses))
             {
-                string jsonStr = File.ReadAllText(_pathBlocked);
-                _processNames = JsonSerializer.Deserialize<List<string>>(jsonStr);
-                _processNames.ForEach(p => this.BlockedProcesses.Items.Add(p));
-            }
-        }
-
-        private void ReadAllowedProcesses()
-        {
-            if (File.Exists(_pathAllowed))
-            {
-                string jsonStr = File.ReadAllText(_pathAllowed);
+                string jsonStr = File.ReadAllText(_pathProcesses);
                 _allowedProcesses = JsonSerializer.Deserialize<List<AllowedProcess>>(jsonStr);
-                _allowedProcesses.ForEach(p => this.AllowedProcesses.Items.Add(p));
+                _allowedProcesses.ForEach(p => this.ProcessesWithRules.Items.Add(p.ProcessName));
             }
+            else
+            {
+                _allowedProcesses = new List<AllowedProcess>();
+            }
+        }
+
+        private void WriteProcesses()
+        {
+            File.WriteAllText(_pathProcesses, JsonSerializer.Serialize(_allowedProcesses));
+        }
+
+        private void SetAllowedTimeClick(object sender, EventArgs e)
+        {
+            _allowedProcesses.FirstOrDefault(p => p.ProcessName.Equals(this.ProcessesWithRules.SelectedItem.ToString())).AllowedTime = (int)this.TimeAllowed_nud.Value * 60;
+        }
+
+        private void AllowedTimeSelectedChanged(object sender, EventArgs e)
+        {
+            this.ProcessName_tb.Text = this.ProcessesWithRules.SelectedItem.ToString();
+            this.MaxLifeTime_tb.Text = (_allowedProcesses.FirstOrDefault(p => p.ProcessName.Equals(this.ProcessesWithRules.SelectedItem.ToString())).AllowedTime / 60).ToString();
+            this.LeftLifeTime_tb.Text = (_allowedProcesses.FirstOrDefault(p => p.ProcessName.Equals(this.ProcessesWithRules.SelectedItem.ToString())).WorkTime / 60).ToString();
         }
 
         private void BlockProcessClick(object sender, EventArgs e)
         {
-            this.BlockedProcesses.Items.Add(this.ExistingProcesses.SelectedItem);
-            this.ExistingProcesses.Items.Remove(this.BlockedProcesses.SelectedItem);
+            if (this.ProcessesWithRules.Items.Contains(this.ExistingProcesses.SelectedItem)) return;
+            AddRule(this.ExistingProcesses.SelectedItem.ToString());
+            this.ProcessesWithRules.Items.Add(this.ExistingProcesses.SelectedItem);
+            this.ExistingProcesses.Items.Remove(this.ProcessesWithRules.SelectedItem);
+        }
+
+        private void AddRule(string procName)
+        {
+            AllowedProcess temp = new AllowedProcess(procName, 0);
+            _allowedProcesses.Add(temp);
         }
 
         private void WriteRegStartTime()
@@ -84,12 +101,14 @@ namespace ProcessAdmin_19._08
             temp = fileDialog.FileName;
             temp = temp.Substring(temp.LastIndexOf('\\') + 1, temp.Length - temp.LastIndexOf('\\') - 1);
             temp = temp.Substring(0, temp.IndexOf('.'));
-            this.BlockedProcesses.Items.Add(temp);
+            if (this.ProcessesWithRules.Items.Contains(temp)) return;
+            this.ProcessesWithRules.Items.Add(temp);
+            AddRule(temp);
         }
 
         private void UnblockProcessClick(object sender, EventArgs e)
         {
-            this.BlockedProcesses.Items.Remove(this.BlockedProcesses.SelectedItem);
+            this.ProcessesWithRules.Items.Remove(this.ProcessesWithRules.SelectedItem);
         }
 
         private void RenewList(object sender, EventArgs e)
@@ -98,9 +117,11 @@ namespace ProcessAdmin_19._08
             {
                 while (true)
                 {
+                    Thread.Sleep(20000);
                     this.ExistingProcesses.Invoke(() =>
                     {
                         this.ExistingProcesses.Items.Clear();
+
                         _processList.ForEach(p =>
                         {
                             if (!this.ExistingProcesses.Items.Contains(p.ProcessName))
@@ -109,7 +130,6 @@ namespace ProcessAdmin_19._08
                             }
                         });
                     });
-                    Thread.Sleep(5000);
                 }
             });
         }
@@ -121,14 +141,50 @@ namespace ProcessAdmin_19._08
                 while (true)
                 {
                     _processList = Process.GetProcesses().ToList();
+                    int pos = Environment.ProcessPath.LastIndexOf('\\') + 1;
+                    int count = Environment.ProcessPath.Count() - 4 - pos;
                     foreach (Process process in _processList)
                     {
-                        foreach (var i in this.BlockedProcesses.Items)
+                        foreach (AllowedProcess p in _allowedProcesses)
                         {
-                            if (i.Equals(process.ProcessName)) process.Kill();
+                            if (p.ProcessName.Equals(Environment.ProcessPath.Substring(pos, count))) continue;
+                            if (p.ProcessName.Equals(process.ProcessName) && p.AllowedTime <= p.WorkTime) process.Kill();
                         }
                     }
                     if (!_running) break;
+                }
+            });
+        }
+
+        private void RunCheck()
+        {
+            Task.Factory.StartNew(() =>
+            {
+                while (true)
+                {
+                    foreach (AllowedProcess p in _allowedProcesses)
+                    {
+                        if (Process.GetProcesses().Any(proc => proc.ProcessName.Equals(p.ProcessName))) p.WorkTime++;
+                    }
+                    Thread.Sleep(1000);
+                }
+            });
+        }
+
+        private void ResetTimers()
+        {
+            Task.Factory.StartNew(() =>
+            {
+                while (true)
+                {
+                    if (DateTime.Now.ToLongTimeString().Equals("22:50:30"))
+                    {
+                        foreach (AllowedProcess p in _allowedProcesses)
+                        {
+                            p.WorkTime = 0;
+                        }
+                    }
+                    Thread.Sleep(1000);
                 }
             });
         }
