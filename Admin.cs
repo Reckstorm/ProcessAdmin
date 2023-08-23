@@ -119,11 +119,9 @@ namespace ProcessAdmin_19._08
 
         private void RunClick(object sender, EventArgs e)
         {
-            ProcessStartInfo psi = new ProcessStartInfo();
+            ProcessStartInfo psi = new ProcessStartInfo("D:\\Projects\\TestCompatibility\\bin\\Debug\\BGKiller.exe");
             psi.CreateNoWindow = true;
             psi.UseShellExecute = false;
-            psi.FileName = "D:\\Projects\\TestCompatibility\\bin\\Debug\\BGKiller.exe";
-            psi.Verb = "run";
             psi.Arguments = _pathProcesses;
             Process.Start(psi);
             _running = !_running;
