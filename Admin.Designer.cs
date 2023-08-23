@@ -183,6 +183,7 @@
             Run_btn.TabIndex = 15;
             Run_btn.Text = "Run rules";
             Run_btn.UseVisualStyleBackColor = true;
+            Run_btn.Click += RunClick;
             // 
             // Admin
             // 

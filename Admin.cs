@@ -8,7 +8,6 @@ namespace ProcessAdmin_19._08
 {
     public partial class Admin : Form
     {
-        private List<string> _processNames { get; set; }
         private List<Process> _processList { get; set; }
         private List<AllowedProcess> _allowedProcesses { get; set; }
         public string _pathProcesses { get; set; }
@@ -16,13 +15,15 @@ namespace ProcessAdmin_19._08
         public Admin()
         {
             InitializeComponent();
+            CheckIfBGRunning();
             WriteRegStartTime();
             FormClosing += (s, e) =>
             {
                 _running = !_running;
                 WriteProcesses();
             };
-            _pathProcesses = $"{Environment.CurrentDirectory}\\Rules.json";
+            string t = Application.ExecutablePath;
+            _pathProcesses = $"{Application.ExecutablePath.Substring(0, t.LastIndexOf('\\'))}\\Rules.json";
             ReadProcesses();
             _running = true;
             foreach (Process item in Process.GetProcesses())
@@ -36,6 +37,15 @@ namespace ProcessAdmin_19._08
             RunCheck();
             ResetTimers();
             Load += RenewList;
+        }
+
+        private void CheckIfBGRunning()
+        {
+            if (_processList == null) return;
+            int pos = Environment.ProcessPath.LastIndexOf('\\') + 1;
+            int count = Environment.ProcessPath.Count() - 4 - pos;
+            Process temp = _processList.FirstOrDefault(p => p.ProcessName.Equals(Environment.ProcessPath.Substring(pos, count)));
+            if (temp != null) temp.Kill();
         }
 
         private void ReadProcesses()
@@ -54,7 +64,16 @@ namespace ProcessAdmin_19._08
 
         private void WriteProcesses()
         {
-            File.WriteAllText(_pathProcesses, JsonSerializer.Serialize(_allowedProcesses));
+            lock (new object())
+            {
+                File.WriteAllText(_pathProcesses, JsonSerializer.Serialize(_allowedProcesses));
+            }
+        }
+
+        private void AddRule(string procName)
+        {
+            AllowedProcess temp = new AllowedProcess(procName, 0);
+            _allowedProcesses.Add(temp);
         }
 
         private void SetAllowedTimeClick(object sender, EventArgs e)
@@ -64,6 +83,7 @@ namespace ProcessAdmin_19._08
 
         private void AllowedTimeSelectedChanged(object sender, EventArgs e)
         {
+            if (this.ProcessesWithRules.SelectedItem == null) return;
             this.ProcessName_tb.Text = this.ProcessesWithRules.SelectedItem.ToString();
             this.MaxLifeTime_tb.Text = (_allowedProcesses.FirstOrDefault(p => p.ProcessName.Equals(this.ProcessesWithRules.SelectedItem.ToString())).AllowedTime / 60).ToString();
             this.LeftLifeTime_tb.Text = (_allowedProcesses.FirstOrDefault(p => p.ProcessName.Equals(this.ProcessesWithRules.SelectedItem.ToString())).WorkTime / 60).ToString();
@@ -73,23 +93,9 @@ namespace ProcessAdmin_19._08
         {
             if (this.ProcessesWithRules.Items.Contains(this.ExistingProcesses.SelectedItem)) return;
             AddRule(this.ExistingProcesses.SelectedItem.ToString());
-            this.ProcessesWithRules.Items.Add(this.ExistingProcesses.SelectedItem);
-            this.ExistingProcesses.Items.Remove(this.ProcessesWithRules.SelectedItem);
-        }
-
-        private void AddRule(string procName)
-        {
-            AllowedProcess temp = new AllowedProcess(procName, 0);
-            _allowedProcesses.Add(temp);
-        }
-
-        private void WriteRegStartTime()
-        {
-            RegistryKey currentUserKey = Registry.CurrentUser;
-            RegistryKey AdminStartTime = currentUserKey.CreateSubKey("AdminStartTime");
-            AdminStartTime.SetValue("LastLaunchTime", $"{DateTime.Now}");
-            AdminStartTime.Close();
-            currentUserKey.Close();
+            var t = this.ExistingProcesses.SelectedItem;
+            this.ProcessesWithRules.Items.Add(t);
+            this.ExistingProcesses.Items.Remove(t);
         }
 
         private void BlockProcessExeClick(object sender, EventArgs e)
@@ -111,6 +117,19 @@ namespace ProcessAdmin_19._08
             this.ProcessesWithRules.Items.Remove(this.ProcessesWithRules.SelectedItem);
         }
 
+        private void RunClick(object sender, EventArgs e)
+        {
+            ProcessStartInfo psi = new ProcessStartInfo();
+            psi.CreateNoWindow = true;
+            psi.UseShellExecute = false;
+            psi.FileName = "D:\\Projects\\TestCompatibility\\bin\\Debug\\BGKiller.exe";
+            psi.Verb = "run";
+            psi.Arguments = _pathProcesses;
+            Process.Start(psi);
+            _running = !_running;
+            this.Hide();
+        }
+
         private void RenewList(object sender, EventArgs e)
         {
             Task.Factory.StartNew(() =>
@@ -121,7 +140,6 @@ namespace ProcessAdmin_19._08
                     this.ExistingProcesses.Invoke(() =>
                     {
                         this.ExistingProcesses.Items.Clear();
-
                         _processList.ForEach(p =>
                         {
                             if (!this.ExistingProcesses.Items.Contains(p.ProcessName))
@@ -148,7 +166,14 @@ namespace ProcessAdmin_19._08
                         foreach (AllowedProcess p in _allowedProcesses)
                         {
                             if (p.ProcessName.Equals(Environment.ProcessPath.Substring(pos, count))) continue;
-                            if (p.ProcessName.Equals(process.ProcessName) && p.AllowedTime <= p.WorkTime) process.Kill();
+                            if (p.ProcessName.Equals(process.ProcessName) && p.AllowedTime <= p.WorkTime)
+                            {
+                                foreach (Process temp in Process.GetProcessesByName(p.ProcessName))
+                                {
+                                    temp.Kill();
+                                }
+                                WriteProcesses();
+                            }
                         }
                     }
                     if (!_running) break;
@@ -166,6 +191,7 @@ namespace ProcessAdmin_19._08
                     {
                         if (Process.GetProcesses().Any(proc => proc.ProcessName.Equals(p.ProcessName))) p.WorkTime++;
                     }
+                    WriteProcesses();
                     Thread.Sleep(1000);
                 }
             });
@@ -177,16 +203,26 @@ namespace ProcessAdmin_19._08
             {
                 while (true)
                 {
-                    if (DateTime.Now.ToLongTimeString().Equals("22:50:30"))
+                    if (DateTime.Now.ToLongTimeString().Equals("00:00:00"))
                     {
                         foreach (AllowedProcess p in _allowedProcesses)
                         {
                             p.WorkTime = 0;
                         }
+                        WriteProcesses();
                     }
                     Thread.Sleep(1000);
                 }
             });
+        }
+
+        private void WriteRegStartTime()
+        {
+            RegistryKey currentUserKey = Registry.CurrentUser;
+            RegistryKey AdminStartTime = currentUserKey.CreateSubKey("AdminStartTime");
+            AdminStartTime.SetValue("LastLaunchTime", $"{DateTime.Now}");
+            AdminStartTime.Close();
+            currentUserKey.Close();
         }
     }
 }

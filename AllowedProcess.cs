@@ -11,7 +11,7 @@ namespace ProcessAdmin_19._08
     {
         public string ProcessName { get; set; }
         public int AllowedTime { get; set; }
-        public object locker { get; set; } = new object();
+        private object locker { get; set; } = new object();
 
         private int workTime;
 
