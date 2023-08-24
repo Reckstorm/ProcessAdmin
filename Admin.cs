@@ -11,7 +11,10 @@ namespace ProcessAdmin_19._08
         private List<Process> _processList { get; set; }
         private List<AllowedProcess> _allowedProcesses { get; set; }
         public string _pathProcesses { get; set; }
+        private string _nameCLI { get; set; } = "BGKiller";
         private bool _running { get; set; }
+
+        private object _lock { get; set; } = new object();
         public Admin()
         {
             InitializeComponent();
@@ -41,11 +44,11 @@ namespace ProcessAdmin_19._08
 
         private void CheckIfBGRunning()
         {
-            if (_processList == null) return;
-            int pos = Environment.ProcessPath.LastIndexOf('\\') + 1;
-            int count = Environment.ProcessPath.Count() - 4 - pos;
-            Process temp = _processList.FirstOrDefault(p => p.ProcessName.Equals(Environment.ProcessPath.Substring(pos, count)));
-            if (temp != null) temp.Kill();
+            if (_processList == null) _processList = Process.GetProcesses().ToList();
+            Process temp = _processList.FirstOrDefault(p => p.ProcessName.Equals(Application.ProductName));
+            Process tempCLI = _processList.FirstOrDefault(p => p.ProcessName.Equals(_nameCLI));
+            if (temp != null && temp.Id != Process.GetCurrentProcess().Id) temp.Kill();
+            if (tempCLI != null) tempCLI.Kill();
         }
 
         private void ReadProcesses()
@@ -64,7 +67,7 @@ namespace ProcessAdmin_19._08
 
         private void WriteProcesses()
         {
-            lock (new object())
+            lock (_lock)
             {
                 File.WriteAllText(_pathProcesses, JsonSerializer.Serialize(_allowedProcesses));
             }
@@ -85,8 +88,10 @@ namespace ProcessAdmin_19._08
         {
             if (this.ProcessesWithRules.SelectedItem == null) return;
             this.ProcessName_tb.Text = this.ProcessesWithRules.SelectedItem.ToString();
-            this.MaxLifeTime_tb.Text = (_allowedProcesses.FirstOrDefault(p => p.ProcessName.Equals(this.ProcessesWithRules.SelectedItem.ToString())).AllowedTime / 60).ToString();
-            this.LeftLifeTime_tb.Text = (_allowedProcesses.FirstOrDefault(p => p.ProcessName.Equals(this.ProcessesWithRules.SelectedItem.ToString())).WorkTime / 60).ToString();
+            int mTime = (_allowedProcesses.FirstOrDefault(p => p.ProcessName.Equals(this.ProcessesWithRules.SelectedItem.ToString())).AllowedTime / 60);
+            int wTime = (_allowedProcesses.FirstOrDefault(p => p.ProcessName.Equals(this.ProcessesWithRules.SelectedItem.ToString())).WorkTime / 60);
+            this.MaxLifeTime_tb.Text = mTime.ToString();
+            this.LeftLifeTime_tb.Text = (mTime - wTime).ToString();
         }
 
         private void BlockProcessClick(object sender, EventArgs e)
@@ -119,13 +124,13 @@ namespace ProcessAdmin_19._08
 
         private void RunClick(object sender, EventArgs e)
         {
-            ProcessStartInfo psi = new ProcessStartInfo("D:\\Projects\\TestCompatibility\\bin\\Debug\\BGKiller.exe");
+            ProcessStartInfo psi = new ProcessStartInfo($"{_nameCLI}.exe");
             psi.CreateNoWindow = true;
             psi.UseShellExecute = false;
             psi.Arguments = _pathProcesses;
             Process.Start(psi);
             _running = !_running;
-            this.Hide();
+            this.Close();
         }
 
         private void RenewList(object sender, EventArgs e)
@@ -157,13 +162,11 @@ namespace ProcessAdmin_19._08
                 while (true)
                 {
                     _processList = Process.GetProcesses().ToList();
-                    int pos = Environment.ProcessPath.LastIndexOf('\\') + 1;
-                    int count = Environment.ProcessPath.Count() - 4 - pos;
                     foreach (Process process in _processList)
                     {
                         foreach (AllowedProcess p in _allowedProcesses)
                         {
-                            if (p.ProcessName.Equals(Environment.ProcessPath.Substring(pos, count))) continue;
+                            if (p.ProcessName.Equals(Application.ProductName)) continue;
                             if (p.ProcessName.Equals(process.ProcessName) && p.AllowedTime <= p.WorkTime)
                             {
                                 foreach (Process temp in Process.GetProcessesByName(p.ProcessName))
